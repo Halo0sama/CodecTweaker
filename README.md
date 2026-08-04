@@ -22,7 +22,7 @@ Some earphones (e.g. MOONDROP Little White) fall back to AAC on every reconnect 
 
 ## Requirements
 
-- Tested on Xiaomi phones with HyperOS / MIUI (HyperOS 2 / Android 16). Other devices and ROMs are **not guaranteed to work** — you can try at your own risk
+- Tested on a Xiaomi phone with HyperOS 3 (Android 16). Other devices and ROMs are **not guaranteed to work** — you can try at your own risk
 - Android 8.0+ (API 26+)
 - [Shizuku](https://github.com/RikkaApps/Shizuku) running (wireless debugging is enough)
 
@@ -105,7 +105,7 @@ GPL-3.0. See [LICENSE](./LICENSE).
 
 ## 环境要求
 
-- 以小米手机（HyperOS 2 / Android 16）为测试环境；**其他手机 / 系统不保证功能正常**，可自行尝试
+- 以小米手机（HyperOS 3 / Android 16）为测试环境；**其他手机 / 系统不保证功能正常**，可自行尝试
 - Android 8.0+（API 26+）
 - 已启动 [Shizuku](https://github.com/RikkaApps/Shizuku)（无线调试即可）
 
