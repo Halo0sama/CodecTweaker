@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">音质助手</string>
+    <string name="accessibility_desc">检测到你选择的蓝牙耳机重连后，自动恢复所选编码器与播放质量（默认 LHDC 900kbps）。需要配合 Shizuku 使用。</string>
+</resources>
