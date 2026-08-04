@@ -6,7 +6,6 @@ A no-root Android app for Xiaomi / HyperOS that automatically restores the Bluet
 
 <p align="center">
   <img src="screenshots/main.png" width="40%" />
-  <img src="screenshots/dropdown.png" width="40%" />
 </p>
 
 ## Why
@@ -19,12 +18,11 @@ Some earphones (e.g. MOONDROP Little White) fall back to AAC on every reconnect 
 - **Full codec list, identical to developer options**: System default / SBC / AAC / aptX / aptX HD / LDAC / aptX Adaptive / aptX TWS+ / LHDC V5 / V3/V4 / V2 / V1 / MIHC / enable & disable optional codecs
 - **Bitrate options identical to the settings UI**: e.g. LHDC 990/909, 660/606, 330/303 kbps and adaptive
 - **No root**: Shizuku user-service + Accessibility service, no bootloader unlock required
-- **Material 3 UI**: dynamic color (Monet), edge-to-edge, predictive back, modern dropdowns
 - **Custom overrides**: manual device entry, custom row/option labels, trigger delay
 
 ## Requirements
 
-- Xiaomi / HyperOS phone (developed and verified on HyperOS 2 / Android 16)
+- Tested on Xiaomi phones with HyperOS / MIUI (HyperOS 2 / Android 16). Other devices and ROMs are **not guaranteed to work** — you can try at your own risk
 - Android 8.0+ (API 26+)
 - [Shizuku](https://github.com/RikkaApps/Shizuku) running (wireless debugging is enough)
 
@@ -74,6 +72,13 @@ Done — codec stays until the next reconnect
 
 GPL-3.0. See [LICENSE](./LICENSE).
 
+## Acknowledgments
+
+- [Andrea-lyz/MelodyCodecTweaker](https://github.com/Andrea-lyz/MelodyCodecTweaker) — referenced for the codec-switching approach
+- [RikkaApps/Shizuku](https://github.com/RikkaApps/Shizuku) — Shizuku API used for root-free shell access
+- [iamr0s/InstallerX](https://github.com/iamr0s/InstallerX) — referenced for predictive-back and UI behavior details
+- DeepSeek v4 flash — development and debugging assistance
+
 ---
 
 # 蓝牙音质助手（Bluetooth Codec Auto-Fix）
@@ -84,7 +89,6 @@ GPL-3.0. See [LICENSE](./LICENSE).
 
 <p align="center">
   <img src="screenshots/main.png" width="40%" />
-  <img src="screenshots/dropdown.png" width="40%" />
 </p>
 
 ## 为什么需要它
@@ -97,12 +101,11 @@ GPL-3.0. See [LICENSE](./LICENSE).
 - **完整协议列表，与开发者选项完全一致**：使用系统选择（默认）/ SBC / AAC / aptX / aptX HD / LDAC / aptX Adaptive / aptX TWS+ / LHDC V5 / V3/V4 / V2 / V1 / MIHC / 启用与停用可选编解码器
 - **比特率选项与系统设置完全一致**：如 LHDC 990/909、660/606、330/303kbps 与自适应
 - **免 Root**：Shizuku 用户服务 + 无障碍服务，不需要解锁 Bootloader
-- **Material 3 界面**：动态取色（Monet）、边到边、预测性返回、现代下拉框
 - **自定义能力**：手动输入耳机、自定义行文案/选项文案、触发延迟
 
 ## 环境要求
 
-- 小米 / HyperOS 手机（在 HyperOS 2 / Android 16 上开发验证）
+- 以小米手机（HyperOS 2 / Android 16）为测试环境；**其他手机 / 系统不保证功能正常**，可自行尝试
 - Android 8.0+（API 26+）
 - 已启动 [Shizuku](https://github.com/RikkaApps/Shizuku)（无线调试即可）
 
@@ -151,3 +154,10 @@ UI 自动化依次选择编码器行、播放质量行
 ## 许可证
 
 GPL-3.0，详见 [LICENSE](./LICENSE)。
+
+## 鸣谢
+
+- [Andrea-lyz/MelodyCodecTweaker](https://github.com/Andrea-lyz/MelodyCodecTweaker) —— 参考了其编码器切换思路
+- [RikkaApps/Shizuku](https://github.com/RikkaApps/Shizuku) —— 本项目使用的 Shizuku API，实现免 Root 执行 shell
+- [iamr0s/InstallerX](https://github.com/iamr0s/InstallerX) —— 参考了其预测性返回与界面行为细节
+- DeepSeek v4 flash —— 开发与调试协助
