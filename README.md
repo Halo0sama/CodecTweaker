@@ -6,6 +6,7 @@ A no-root Android app for Xiaomi / HyperOS that automatically restores the Bluet
 
 <p align="center">
   <img src="screenshots/main.png" width="40%" />
+  <img src="screenshots/diagnostics.png" width="40%" />
 </p>
 
 ## Why
@@ -89,6 +90,7 @@ GPL-3.0. See [LICENSE](./LICENSE).
 
 <p align="center">
   <img src="screenshots/main.png" width="40%" />
+  <img src="screenshots/diagnostics.png" width="40%" />
 </p>
 
 ## 为什么需要它
