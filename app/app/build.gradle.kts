@@ -11,8 +11,8 @@ android {
         applicationId = "com.lhdcprobe"
         minSdk = 26
         targetSdk = 37
-        versionCode = 67
-        versionName = "8.7"
+        versionCode = 68
+        versionName = "8.8"
     }
 
     buildTypes {

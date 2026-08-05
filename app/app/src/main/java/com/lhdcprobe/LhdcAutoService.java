@@ -48,6 +48,7 @@ public class LhdcAutoService extends AccessibilityService {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private volatile boolean running = false;
     private volatile boolean lastConnected = false;
+    private volatile String flowMac;
     private BluetoothAdapter adapter;
 
     private final BroadcastReceiver a2dpReceiver = new BroadcastReceiver() {
@@ -69,7 +70,8 @@ public class LhdcAutoService extends AccessibilityService {
                     Config.rememberDevice(context, device);
                     long delay = Config.getTriggerDelayMs(context);
                     log("检测到目标耳机 A2DP 连接，" + delay + "ms 后自动切换");
-                    handler.postDelayed(() -> startFlow("a2dp_connected"), delay);
+                    handler.postDelayed(() -> startFlow("a2dp_connected",
+                            device.getAddress()), delay);
                 }
             } else if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)
                     && Config.isTarget(context, device)) {
@@ -142,6 +144,10 @@ public class LhdcAutoService extends AccessibilityService {
     }
 
     public void startFlow(String reason) {
+        startFlow(reason, null);
+    }
+
+    public void startFlow(String reason, String mac) {
         if (running) {
             log("流程已在执行，跳过(" + reason + ")");
             return;
@@ -159,6 +165,7 @@ public class LhdcAutoService extends AccessibilityService {
             return;
         }
         log("开始自动切换: " + reason);
+        flowMac = mac;
         running = true;
         executor.execute(this::runFlow);
     }
@@ -167,21 +174,55 @@ public class LhdcAutoService extends AccessibilityService {
         boolean ok = true;
         try {
             ok &= runStep("打开设置并搜索", this::openDevOptions);
-            if (!TextUtils.isEmpty(Config.resolveCodecOption(this))) {
-                ok &= runStep("选择编码器 " + Config.resolveCodecOption(this), this::selectCodec);
+            if (!TextUtils.isEmpty(Config.resolveCodecOption(this, flowMac))) {
+                ok &= runStep("选择编码器 " + Config.resolveCodecOption(this, flowMac), this::selectCodec);
             }
-            if (!TextUtils.isEmpty(Config.resolveQualityOption(this))) {
-                ok &= runStep("选择播放质量 " + Config.resolveQualityOption(this), this::selectQuality);
+            if (!TextUtils.isEmpty(Config.resolveQualityOption(this, flowMac))) {
+                ok &= runStep("选择播放质量 " + Config.resolveQualityOption(this, flowMac), this::selectQuality);
             }
             if (!ok) {
                 log("流程结束：部分步骤未完成（文字不匹配时可到高级设置里修改）");
             } else {
                 log("自动切换流程完成");
+                afterFlowDone();
             }
         } catch (Throwable t) {
             log("流程异常: " + t);
         } finally {
             running = false;
+        }
+    }
+
+    /** 流程成功后的可选收尾动作（两个开关默认关闭）。 */
+    private void afterFlowDone() {
+        try {
+            if (Config.isExitSettingsAfterDone(this)) {
+                log("完成后退出设置");
+                // 持续按返回键，直到设置应用不再是前台；避免按少留在设置里、
+                // 按多误退到别的应用
+                for (int i = 0; i < 4; i++) {
+                    if (!isSettingsForeground()) break;
+                    ShellExec.exec("input keyevent 4", 3000);
+                    sleep(700);
+                }
+            }
+            if (Config.isResumeMusicAfterDone(this)) {
+                log("完成后继续播放当前音乐");
+                ShellExec.exec("input keyevent 126", 3000);
+            }
+        } catch (Throwable t) {
+            log("完成后收尾操作失败: " + t);
+        }
+    }
+
+    /** 检查设置应用是否还在前台。 */
+    private boolean isSettingsForeground() {
+        try {
+            String out = ShellExec.exec(
+                    "dumpsys window | grep -m1 mCurrentFocus", 5000);
+            return out != null && out.contains("com.android.settings");
+        } catch (Throwable t) {
+            return false;
         }
     }
 
@@ -246,8 +287,8 @@ public class LhdcAutoService extends AccessibilityService {
 
     private boolean selectCodec() {
         if (!ShellExec.available()) return false;
-        String row = Config.resolveCodecRow(this);
-        String option = Config.resolveCodecOption(this);
+        String row = Config.resolveCodecRow(this, flowMac);
+        String option = Config.resolveCodecOption(this, flowMac);
         int[] r = treeFind(row, 8);
         if (r == null) r = ShellExec.waitVisible(row, 6);
         if (r == null) r = ShellExec.scrollUntilVisible(row);
@@ -273,8 +314,8 @@ public class LhdcAutoService extends AccessibilityService {
 
     private boolean selectQuality() {
         if (!ShellExec.available()) return false;
-        String row = Config.resolveQualityRow(this);
-        String option = Config.resolveQualityOption(this);
+        String row = Config.resolveQualityRow(this, flowMac);
+        String option = Config.resolveQualityOption(this, flowMac);
         int[] r = treeFind(row, 8);
         if (r == null) r = ShellExec.waitVisible(row, 6);
         if (r == null) r = ShellExec.scrollUntilVisible(row);

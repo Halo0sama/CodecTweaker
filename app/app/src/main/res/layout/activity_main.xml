@@ -49,6 +49,13 @@
                     android:text="我的耳机"
                     android:textAppearance="?attr/textAppearanceTitleMedium" />
 
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="点击记忆的耳机可切换到它的预设方案"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:textSize="12sp" />
+
                 <LinearLayout
                     android:id="@+id/remembered_list"
                     android:layout_width="match_parent"
@@ -116,6 +123,20 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:text="连接后自动切换" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/sw_exit_dev"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="完成后退出设置" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/sw_resume_music"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="完成后继续播放当前音乐" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:id="@+id/til_codec"

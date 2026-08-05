@@ -79,6 +79,8 @@ public class MainActivity extends AppCompatActivity {
     private android.widget.ScrollView logScroll;
     private MaterialSwitch swAuto;
     private MaterialSwitch swScreenOn;
+    private MaterialSwitch swExitDev;
+    private MaterialSwitch swResumeMusic;
     private MaterialAutoCompleteTextView spCodec;
     private MaterialAutoCompleteTextView spQuality;
     private TextInputLayout tilCodec;
@@ -142,6 +144,8 @@ public class MainActivity extends AppCompatActivity {
         logScroll = findViewById(R.id.log_scroll);
         swAuto = findViewById(R.id.sw_auto);
         swScreenOn = findViewById(R.id.sw_screen_on);
+        swExitDev = findViewById(R.id.sw_exit_dev);
+        swResumeMusic = findViewById(R.id.sw_resume_music);
         spCodec = findViewById(R.id.sp_codec);
         spQuality = findViewById(R.id.sp_quality);
         tilCodec = findViewById(R.id.til_codec);
@@ -172,10 +176,23 @@ public class MainActivity extends AppCompatActivity {
             if (loadingUi) return;
             Config.setScreenOnRequired(this, isChecked);
         });
+        swExitDev.setOnCheckedChangeListener((v, isChecked) -> {
+            if (loadingUi) return;
+            Config.setExitSettingsAfterDone(this, isChecked);
+        });
+        swResumeMusic.setOnCheckedChangeListener((v, isChecked) -> {
+            if (loadingUi) return;
+            Config.setResumeMusicAfterDone(this, isChecked);
+        });
         spCodec.setOnItemClickListener((parent, view, position, id) -> {
             if (loadingUi) return;
             String codec = (String) parent.getItemAtPosition(position);
             Config.setCodecLabel(MainActivity.this, codec);
+            String mac = Config.getActiveMac(this);
+            if (mac != null) {
+                Config.setDevicePreset(this, mac, codec,
+                        Config.presetQuality(this, mac));
+            }
             codecDropdownOpen = false;
             updateQualitySpinner();
             updateAdvancedVisibility();
@@ -185,6 +202,11 @@ public class MainActivity extends AppCompatActivity {
             if (loadingUi) return;
             String q = (String) parent.getItemAtPosition(position);
             Config.setQualityLabel(MainActivity.this, q);
+            String mac = Config.getActiveMac(this);
+            if (mac != null) {
+                Config.setDevicePreset(this, mac,
+                        Config.presetCodec(this, mac), q);
+            }
             qualityDropdownOpen = false;
         });
         setupDropdownToggle(spCodec, tilCodec);
@@ -249,6 +271,8 @@ public class MainActivity extends AppCompatActivity {
         loadingUi = true;
         swAuto.setChecked(Config.isEnabled(this));
         swScreenOn.setChecked(Config.isScreenOnRequired(this));
+        swExitDev.setChecked(Config.isExitSettingsAfterDone(this));
+        swResumeMusic.setChecked(Config.isResumeMusicAfterDone(this));
         int ci = indexOf(Config.CODECS, Config.getCodecLabel(this));
         if (ci < 0) ci = indexOf(Config.CODECS, Config.CODEC_CUSTOM);
         spCodec.setText(Config.CODECS[ci], false);
@@ -265,7 +289,7 @@ public class MainActivity extends AppCompatActivity {
                 this, R.layout.item_dropdown, android.R.id.text1, opts);
         spQuality.setAdapter(adapter);
         if (opts.length == 0) {
-            spQuality.setText("", false);
+            spQuality.setText("无可选播放音质", false);
             spQuality.setEnabled(false);
         } else {
             spQuality.setEnabled(true);
@@ -445,6 +469,11 @@ public class MainActivity extends AppCompatActivity {
                 qualityRowEdit.getText().toString().trim(),
                 qualityOptionEdit.getText().toString().trim(),
                 delay, swScreenOn.isChecked());
+        String mac = Config.getActiveMac(this);
+        if (mac != null) {
+            Config.setDevicePreset(this, mac, Config.CODEC_CUSTOM,
+                    qualityOptionEdit.getText().toString().trim());
+        }
         spCodec.setText(Config.CODEC_CUSTOM, false);
         updateQualitySpinner();
         updateAdvancedVisibility();
@@ -457,18 +486,28 @@ public class MainActivity extends AppCompatActivity {
         rememberedList.removeAllViews();
         List<JSONObject> list = Config.rememberedList(this);
         SimpleDateFormat fmt = new SimpleDateFormat("MM-dd HH:mm", Locale.US);
+        String activeMac = Config.getActiveMac(this);
         for (JSONObject o : list) {
             String name = o.optString("name");
             String mac = o.optString("mac");
             long ts = o.optLong("ts");
+            boolean active = mac.equalsIgnoreCase(activeMac);
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            row.setClickable(true);
+            row.setFocusable(true);
+            row.setPadding(0, 6, 0, 6);
+            if (active) {
+                row.setBackgroundResource(R.drawable.bg_card);
+            }
             TextView tv = new TextView(this);
-            tv.setText((name.isEmpty() ? "未命名设备" : name) + "\n"
+            tv.setText((name.isEmpty() ? "未命名设备" : name)
+                    + (active ? "（当前预设）" : "") + "\n"
                     + mac + " · 记忆于 " + fmt.format(new Date(ts)));
             tv.setTextSize(13);
             tv.setPadding(0, 6, 0, 6);
+            row.setOnClickListener(v -> selectRememberedDevice(mac));
             ImageButton del = new ImageButton(this);
             del.setImageResource(R.drawable.ic_close);
             del.setBackground(null);
@@ -492,6 +531,40 @@ public class MainActivity extends AppCompatActivity {
             tv.setPadding(0, 6, 0, 6);
             rememberedList.addView(tv);
         }
+    }
+
+    /** 点击记忆设备：加载其预设；再点一次取消选择，回到全局方案。 */
+    private void selectRememberedDevice(String mac) {
+        if (mac == null) return;
+        String active = Config.getActiveMac(this);
+        if (mac.equalsIgnoreCase(active)) {
+            Config.setActiveMac(this, null);
+            renderRememberedDevices();
+            toast("已取消选择，使用全局方案");
+            return;
+        }
+        Config.setActiveMac(this, mac);
+        String codec = Config.presetCodec(this, mac);
+        String quality = Config.presetQuality(this, mac);
+        if (codec == null && quality == null) {
+            // 第一次点：把当前方案存成这个耳机的预设
+            codec = Config.getCodecLabel(this);
+            quality = Config.getQualityLabel(this);
+            Config.setDevicePreset(this, mac, codec, quality);
+        }
+        loadingUi = true;
+        if (codec != null) {
+            Config.setCodecLabel(this, codec);
+            spCodec.setText(codec, false);
+        }
+        if (quality != null) {
+            Config.setQualityLabel(this, quality);
+        }
+        updateQualitySpinner();
+        loadingUi = false;
+        updateAdvancedVisibility();
+        renderRememberedDevices();
+        toast("已切换到该耳机的预设");
     }
 
     private void confirmRemove(String mac) {

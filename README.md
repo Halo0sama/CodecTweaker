@@ -19,6 +19,8 @@ Some earphones (e.g. MOONDROP Little White) fall back to AAC on every reconnect 
 - **Full codec list, identical to developer options**: System default / SBC / AAC / aptX / aptX HD / LDAC / aptX Adaptive / aptX TWS+ / LHDC V5 / V3/V4 / V2 / V1 / MIHC / enable & disable optional codecs
 - **Bitrate options identical to the settings UI**: e.g. LHDC 990/909, 660/606, 330/303 kbps and adaptive
 - **No root**: Shizuku user-service + Accessibility service, no bootloader unlock required
+- **Per-earphone presets**: every remembered earphone keeps its own codec + bitrate; tap an earphone to switch to its preset
+- **Optional post-flow actions**: exit Settings and resume the current music after the switch completes (both off by default)
 - **Custom overrides**: manual device entry, custom row/option labels, trigger delay
 
 ## Requirements
@@ -103,6 +105,8 @@ GPL-3.0. See [LICENSE](./LICENSE).
 - **完整协议列表，与开发者选项完全一致**：使用系统选择（默认）/ SBC / AAC / aptX / aptX HD / LDAC / aptX Adaptive / aptX TWS+ / LHDC V5 / V3/V4 / V2 / V1 / MIHC / 启用与停用可选编解码器
 - **比特率选项与系统设置完全一致**：如 LHDC 990/909、660/606、330/303kbps 与自适应
 - **免 Root**：Shizuku 用户服务 + 无障碍服务，不需要解锁 Bootloader
+- **每耳机预设**：每个记忆的耳机独立保存自己的协议 + 码率，点击耳机即可切换到它的预设
+- **完成后可选操作**：切换完成后自动退出设置、继续播放当前音乐（默认均关闭）
 - **自定义能力**：手动输入耳机、自定义行文案/选项文案、触发延迟
 
 ## 环境要求

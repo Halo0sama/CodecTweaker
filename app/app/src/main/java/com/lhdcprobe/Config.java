@@ -29,6 +29,9 @@ public final class Config {
     public static final String KEY_TRIGGER_DELAY = "trigger_delay_ms";
     public static final String KEY_SCREEN_ON = "screen_on_required";
     public static final String KEY_REMEMBERED = "remembered_devices";
+    public static final String KEY_ACTIVE_MAC = "active_mac";
+    public static final String KEY_EXIT_SETTINGS_AFTER_DONE = "exit_settings_after_done";
+    public static final String KEY_RESUME_MUSIC = "resume_music_after_done";
     public static final String KEY_LAST_LOG = "last_log";
     public static final String KEY_LOG_HISTORY = "log_history";
 
@@ -110,6 +113,10 @@ public final class Config {
         return CODEC_CUSTOM.equals(getCodecLabel(c));
     }
 
+    public static boolean isCustom(Context c, String mac) {
+        return CODEC_CUSTOM.equals(effectiveCodecLabel(c, mac));
+    }
+
     public static String[] qualityOptionsFor(String codec) {
         if (codec == null) return new String[0];
         if (codec.startsWith("LHDC")) return LHDC_QUALITY;
@@ -141,26 +148,42 @@ public final class Config {
     }
 
     public static String resolveCodecRow(Context c) {
-        if (isCustom(c)) return sp(c).getString(KEY_CODEC_ROW, "蓝牙音频编解码器");
+        return resolveCodecRow(c, null);
+    }
+
+    public static String resolveCodecRow(Context c, String mac) {
+        if (isCustom(c, mac)) return sp(c).getString(KEY_CODEC_ROW, "蓝牙音频编解码器");
         return "蓝牙音频编解码器";
     }
 
     public static String resolveCodecOption(Context c) {
-        if (isCustom(c)) return sp(c).getString(KEY_CODEC_OPTION, "");
-        return getCodecLabel(c);
+        return resolveCodecOption(c, null);
+    }
+
+    public static String resolveCodecOption(Context c, String mac) {
+        if (isCustom(c, mac)) return sp(c).getString(KEY_CODEC_OPTION, "");
+        return effectiveCodecLabel(c, mac);
     }
 
     public static String resolveQualityRow(Context c) {
-        if (isCustom(c)) return sp(c).getString(KEY_QUALITY_ROW, "");
-        String codec = getCodecLabel(c);
+        return resolveQualityRow(c, null);
+    }
+
+    public static String resolveQualityRow(Context c, String mac) {
+        if (isCustom(c, mac)) return sp(c).getString(KEY_QUALITY_ROW, "");
+        String codec = effectiveCodecLabel(c, mac);
         String family = codecFamily(codec);
         if (family == null) return "";
         return "蓝牙音频 " + family + " 编解码器：播放质量";
     }
 
     public static String resolveQualityOption(Context c) {
-        if (isCustom(c)) return sp(c).getString(KEY_QUALITY_LABEL, "");
-        return getQualityLabel(c);
+        return resolveQualityOption(c, null);
+    }
+
+    public static String resolveQualityOption(Context c, String mac) {
+        if (isCustom(c, mac)) return sp(c).getString(KEY_QUALITY_LABEL, "");
+        return effectiveQualityLabel(c, mac);
     }
 
     private static String codecFamily(String codec) {
@@ -186,6 +209,90 @@ public final class Config {
 
     public static void setScreenOnRequired(Context c, boolean v) {
         sp(c).edit().putBoolean(KEY_SCREEN_ON, v).apply();
+    }
+
+    // ---------- 完成后行为开关（默认关闭） ----------
+
+    public static boolean isExitSettingsAfterDone(Context c) {
+        return sp(c).getBoolean(KEY_EXIT_SETTINGS_AFTER_DONE, false);
+    }
+
+    public static void setExitSettingsAfterDone(Context c, boolean v) {
+        sp(c).edit().putBoolean(KEY_EXIT_SETTINGS_AFTER_DONE, v).apply();
+    }
+
+    public static boolean isResumeMusicAfterDone(Context c) {
+        return sp(c).getBoolean(KEY_RESUME_MUSIC, false);
+    }
+
+    public static void setResumeMusicAfterDone(Context c, boolean v) {
+        sp(c).edit().putBoolean(KEY_RESUME_MUSIC, v).apply();
+    }
+
+    // ---------- 每耳机预设 ----------
+
+    /** 当前选中的耳机（点击记忆列表加载其预设后写入）；null = 全局方案。 */
+    public static String getActiveMac(Context c) {
+        return sp(c).getString(KEY_ACTIVE_MAC, null);
+    }
+
+    public static void setActiveMac(Context c, String mac) {
+        sp(c).edit().putString(KEY_ACTIVE_MAC, mac).apply();
+    }
+
+    public static String presetCodec(Context c, String mac) {
+        JSONObject o = findRemembered(c, mac);
+        if (o == null) return null;
+        String v = o.optString("codec", "");
+        return v.isEmpty() ? null : v;
+    }
+
+    public static String presetQuality(Context c, String mac) {
+        JSONObject o = findRemembered(c, mac);
+        if (o == null) return null;
+        String v = o.optString("quality", "");
+        return v.isEmpty() ? null : v;
+    }
+
+    /** 保存某耳机的预设；codec/quality 传 null 表示不修改。 */
+    public static void setDevicePreset(Context c, String mac, String codec, String quality) {
+        if (mac == null) return;
+        List<JSONObject> list = rememberedList(c);
+        for (JSONObject o : list) {
+            if (mac.equalsIgnoreCase(o.optString("mac"))) {
+                try {
+                    if (codec != null) o.put("codec", codec);
+                    else o.remove("codec");
+                    if (quality != null) o.put("quality", quality);
+                    else o.remove("quality");
+                } catch (JSONException ignored) {
+                }
+                saveRememberedList(c, list);
+                return;
+            }
+        }
+    }
+
+    private static JSONObject findRemembered(Context c, String mac) {
+        if (mac == null) return null;
+        for (JSONObject o : rememberedList(c)) {
+            if (mac.equalsIgnoreCase(o.optString("mac"))) return o;
+        }
+        return null;
+    }
+
+    /** 某耳机连接时实际使用的协议（有预设用预设，否则用全局）。 */
+    public static String effectiveCodecLabel(Context c, String mac) {
+        String p = presetCodec(c, mac);
+        return p != null ? p : getCodecLabel(c);
+    }
+
+    public static String effectiveQualityLabel(Context c, String mac) {
+        String codec = effectiveCodecLabel(c, mac);
+        String p = presetQuality(c, mac);
+        if (p != null && isQualityValidFor(c, codec, p)) return p;
+        String q = getQualityLabel(c);
+        return isQualityValidFor(c, codec, q) ? q : defaultQualityFor(codec);
     }
 
     // ---------- 设备记忆（默认任意设备，连接即记忆） ----------
