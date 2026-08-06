@@ -80,7 +80,6 @@ GPL-3.0. See [LICENSE](./LICENSE).
 - [Andrea-lyz/MelodyCodecTweaker](https://github.com/Andrea-lyz/MelodyCodecTweaker) — referenced for the codec-switching approach
 - [RikkaApps/Shizuku](https://github.com/RikkaApps/Shizuku) — Shizuku API used for root-free shell access
 - [iamr0s/InstallerX](https://github.com/iamr0s/InstallerX) — referenced for predictive-back and UI behavior details
-- DeepSeek v4 flash — development and debugging assistance
 
 ---
 
@@ -166,4 +165,3 @@ GPL-3.0，详见 [LICENSE](./LICENSE)。
 - [Andrea-lyz/MelodyCodecTweaker](https://github.com/Andrea-lyz/MelodyCodecTweaker) —— 参考了其编码器切换思路
 - [RikkaApps/Shizuku](https://github.com/RikkaApps/Shizuku) —— 本项目使用的 Shizuku API，实现免 Root 执行 shell
 - [iamr0s/InstallerX](https://github.com/iamr0s/InstallerX) —— 参考了其预测性返回与界面行为细节
-- DeepSeek v4 flash —— 开发与调试协助
