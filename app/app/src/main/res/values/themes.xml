@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.SoundAssistant" parent="Theme.Material3.DynamicColors.DayNight.NoActionBar">
-        <!-- 动态取色（莫奈）：不覆盖 colorPrimary，跟随系统壁纸主题 -->
+    <!-- Material 3 Expressive（Google Design）：Expressive 动效 + 形状令牌，
+         动态取色（莫奈）保留：不覆盖 colorPrimary，跟随系统壁纸主题 -->
+    <style name="Theme.SoundAssistant" parent="Theme.Material3Expressive.DynamicColors.DayNight.NoActionBar">
     </style>
 </resources>
