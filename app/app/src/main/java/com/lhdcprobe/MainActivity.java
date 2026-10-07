@@ -8,18 +8,14 @@ import android.bluetooth.BluetoothHeadset;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
@@ -52,7 +48,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-import rikka.shizuku.Shizuku;
 
 /**
  * 音质助手主界面（v8 泛用版）：
@@ -77,28 +72,24 @@ public class MainActivity extends AppCompatActivity {
     private TextView a11yStatus;
     private TextView logView;
     private android.widget.ScrollView logScroll;
+    private TextView fixStatus;
+    private TextView liveName;
+    private TextView liveCodec;
+    private TextView liveBitrate;
+    private TextView liveSelectable;
     private MaterialSwitch swAuto;
-    private MaterialSwitch swScreenOn;
-    private MaterialSwitch swExitDev;
-    private MaterialSwitch swResumeMusic;
     private MaterialAutoCompleteTextView spCodec;
     private MaterialAutoCompleteTextView spQuality;
     private TextInputLayout tilCodec;
     private TextInputLayout tilQuality;
     private boolean codecDropdownOpen;
     private boolean qualityDropdownOpen;
-    private View advancedPanel;
-    private EditText codecRowEdit;
-    private EditText codecOptionEdit;
-    private EditText qualityRowEdit;
-    private EditText qualityOptionEdit;
-    private EditText delayEdit;
 
     private final Runnable refreshRunnable = new Runnable() {
         @Override
         public void run() {
-            refreshStatus();
-            refreshLog();
+            refreshFixStatus();
+            refreshLive();
             renderRememberedDevices();
             ui.postDelayed(this, 2000);
         }
@@ -119,18 +110,6 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    private final Shizuku.OnRequestPermissionResultListener shizukuListener =
-            (requestCode, grantResult) -> {
-                if (requestCode != REQ_SHIZUKU) return;
-                if (grantResult == PackageManager.PERMISSION_GRANTED) {
-                    ShellExec.bind(MainActivity.this);
-                    toast("Shizuku 已授权");
-                } else {
-                    toast("Shizuku 授权被拒绝");
-                }
-                refreshStatus();
-            };
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -138,24 +117,16 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         rememberedList = findViewById(R.id.remembered_list);
-        shizukuStatus = findViewById(R.id.tv_shizuku_status);
-        a11yStatus = findViewById(R.id.tv_a11y_status);
-        logView = findViewById(R.id.tv_log);
-        logScroll = findViewById(R.id.log_scroll);
+        fixStatus = findViewById(R.id.tv_fix_status);
+        liveName = findViewById(R.id.tv_live_name);
+        liveCodec = findViewById(R.id.tv_live_codec);
+        liveBitrate = findViewById(R.id.tv_live_bitrate);
+        liveSelectable = findViewById(R.id.tv_live_selectable);
         swAuto = findViewById(R.id.sw_auto);
-        swScreenOn = findViewById(R.id.sw_screen_on);
-        swExitDev = findViewById(R.id.sw_exit_dev);
-        swResumeMusic = findViewById(R.id.sw_resume_music);
         spCodec = findViewById(R.id.sp_codec);
         spQuality = findViewById(R.id.sp_quality);
         tilCodec = findViewById(R.id.til_codec);
         tilQuality = findViewById(R.id.til_quality);
-        advancedPanel = findViewById(R.id.advanced_panel);
-        codecRowEdit = findViewById(R.id.et_codec_row);
-        codecOptionEdit = findViewById(R.id.et_codec_option);
-        qualityRowEdit = findViewById(R.id.et_quality_row);
-        qualityOptionEdit = findViewById(R.id.et_quality_option);
-        delayEdit = findViewById(R.id.et_delay);
 
         BluetoothManager bm = (BluetoothManager) getSystemService(BLUETOOTH_SERVICE);
         btAdapter = bm != null ? bm.getAdapter() : null;
@@ -172,18 +143,6 @@ public class MainActivity extends AppCompatActivity {
             Config.setEnabled(this, isChecked);
             toast(isChecked ? "自动切换已开启" : "自动切换已关闭");
         });
-        swScreenOn.setOnCheckedChangeListener((v, isChecked) -> {
-            if (loadingUi) return;
-            Config.setScreenOnRequired(this, isChecked);
-        });
-        swExitDev.setOnCheckedChangeListener((v, isChecked) -> {
-            if (loadingUi) return;
-            Config.setExitSettingsAfterDone(this, isChecked);
-        });
-        swResumeMusic.setOnCheckedChangeListener((v, isChecked) -> {
-            if (loadingUi) return;
-            Config.setResumeMusicAfterDone(this, isChecked);
-        });
         spCodec.setOnItemClickListener((parent, view, position, id) -> {
             if (loadingUi) return;
             String codec = (String) parent.getItemAtPosition(position);
@@ -195,7 +154,6 @@ public class MainActivity extends AppCompatActivity {
             }
             codecDropdownOpen = false;
             updateQualitySpinner();
-            updateAdvancedVisibility();
             toast("协议：" + codec);
         });
         spQuality.setOnItemClickListener((parent, view, position, id) -> {
@@ -215,35 +173,17 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.btn_scan_devices).setOnClickListener(v -> showDevicePicker());
         findViewById(R.id.btn_manual_entry).setOnClickListener(v -> showManualEntry());
         findViewById(R.id.btn_remember_connected).setOnClickListener(v -> showConnectedDevices());
-        findViewById(R.id.btn_advanced).setOnClickListener(v -> toggleAdvanced());
-        findViewById(R.id.btn_save_advanced).setOnClickListener(v -> saveAdvanced());
-        findViewById(R.id.btn_shizuku).setOnClickListener(v -> shizukuAction());
-        findViewById(R.id.btn_a11y).setOnClickListener(v ->
-                startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)));
-        findViewById(R.id.btn_app_details).setOnClickListener(v -> startActivity(
-                new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.parse("package:" + getPackageName()))));
-        findViewById(R.id.btn_test_trigger).setOnClickListener(v -> testTrigger());
-        findViewById(R.id.btn_diagnostics).setOnClickListener(v ->
-                startActivity(new Intent(this, A2dpTestActivity.class)));
-        findViewById(R.id.btn_copy_log).setOnClickListener(v -> copyLog());
-        findViewById(R.id.btn_clear_log).setOnClickListener(v -> clearLog());
-
-        try {
-            Shizuku.addRequestPermissionResultListener(shizukuListener);
-        } catch (Throwable t) {
-            Log.w(TAG, "Shizuku listener 注册失败", t);
-        }
+        findViewById(R.id.btn_tools).setOnClickListener(v ->
+                startActivity(new Intent(this, ToolsActivity.class)));
 
         loadConfigIntoUi();
-        refreshStatus();
-        refreshLog();
-        loadCrashReportIntoLog();
+        refreshFixStatus();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        loadConfigIntoUi();
         renderRememberedDevices();
         ui.removeCallbacks(refreshRunnable);
         ui.post(refreshRunnable);
@@ -259,10 +199,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         ui.removeCallbacks(refreshRunnable);
-        try {
-            Shizuku.removeRequestPermissionResultListener(shizukuListener);
-        } catch (Throwable ignored) {
-        }
     }
 
     // ---------- 配置 UI ----------
@@ -270,16 +206,11 @@ public class MainActivity extends AppCompatActivity {
     private void loadConfigIntoUi() {
         loadingUi = true;
         swAuto.setChecked(Config.isEnabled(this));
-        swScreenOn.setChecked(Config.isScreenOnRequired(this));
-        swExitDev.setChecked(Config.isExitSettingsAfterDone(this));
-        swResumeMusic.setChecked(Config.isResumeMusicAfterDone(this));
         int ci = indexOf(Config.CODECS, Config.getCodecLabel(this));
         if (ci < 0) ci = indexOf(Config.CODECS, Config.CODEC_CUSTOM);
         spCodec.setText(Config.CODECS[ci], false);
         updateQualitySpinner();
         loadingUi = false;
-        loadAdvancedFields();
-        updateAdvancedVisibility();
     }
 
     private void updateQualitySpinner() {
@@ -426,58 +357,11 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void updateAdvancedVisibility() {
-        boolean custom = Config.isCustom(this);
-        codecRowEdit.setVisibility(custom ? View.VISIBLE : View.GONE);
-        codecOptionEdit.setVisibility(custom ? View.VISIBLE : View.GONE);
-        qualityRowEdit.setVisibility(custom ? View.VISIBLE : View.GONE);
-        qualityOptionEdit.setVisibility(custom ? View.VISIBLE : View.GONE);
-        advancedPanel.setVisibility(custom ? View.VISIBLE : View.GONE);
-    }
-
-    private void loadAdvancedFields() {
-        codecRowEdit.setText(Config.getCustomCodecRow(this));
-        codecOptionEdit.setText(Config.getCustomCodecOption(this));
-        qualityRowEdit.setText(Config.getCustomQualityRow(this));
-        qualityOptionEdit.setText(Config.getCustomQualityOption(this));
-        delayEdit.setText(String.valueOf(Config.getTriggerDelayMs(this)));
-        swScreenOn.setChecked(Config.isScreenOnRequired(this));
-    }
-
     private int indexOf(String[] arr, String v) {
         for (int i = 0; i < arr.length; i++) {
             if (arr[i].equals(v)) return i;
         }
         return -1;
-    }
-
-    private void toggleAdvanced() {
-        boolean show = advancedPanel.getVisibility() != View.VISIBLE;
-        advancedPanel.setVisibility(show ? View.VISIBLE : View.GONE);
-    }
-
-    private void saveAdvanced() {
-        long delay = 2500;
-        try {
-            delay = Long.parseLong(delayEdit.getText().toString().trim());
-        } catch (Exception ignored) {
-        }
-        if (delay < 500) delay = 500;
-        Config.saveCustom(this,
-                codecRowEdit.getText().toString().trim(),
-                codecOptionEdit.getText().toString().trim(),
-                qualityRowEdit.getText().toString().trim(),
-                qualityOptionEdit.getText().toString().trim(),
-                delay, swScreenOn.isChecked());
-        String mac = Config.getActiveMac(this);
-        if (mac != null) {
-            Config.setDevicePreset(this, mac, Config.CODEC_CUSTOM,
-                    qualityOptionEdit.getText().toString().trim());
-        }
-        spCodec.setText(Config.CODEC_CUSTOM, false);
-        updateQualitySpinner();
-        updateAdvancedVisibility();
-        toast("自定义方案已保存");
     }
 
     // ---------- 记忆设备 ----------
@@ -562,7 +446,6 @@ public class MainActivity extends AppCompatActivity {
         }
         updateQualitySpinner();
         loadingUi = false;
-        updateAdvancedVisibility();
         renderRememberedDevices();
         toast("已切换到该耳机的预设");
     }
@@ -758,7 +641,6 @@ public class MainActivity extends AppCompatActivity {
             boolean ok = grantResults.length > 0;
             for (int r : grantResults) ok = ok && r == PackageManager.PERMISSION_GRANTED;
             toast(ok ? "蓝牙权限已授予，可以重新扫描" : "蓝牙权限被拒绝");
-            refreshStatus();
         }
     }
 
@@ -875,125 +757,32 @@ public class MainActivity extends AppCompatActivity {
 
     // ---------- 权限与状态 ----------
 
-    private boolean isAccessibilityEnabled() {
-        ComponentName cn = new ComponentName(this, LhdcAutoService.class);
-        String enabled = Settings.Secure.getString(getContentResolver(),
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        if (enabled == null) return false;
-        return enabled.contains(cn.flattenToString());
-    }
-
-    private void refreshStatus() {
-        String shizuku;
-        try {
-            boolean ping = Shizuku.pingBinder();
-            boolean granted = Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
-            shizuku = (ping ? "Shizuku：运行中" : "Shizuku：未运行")
-                    + "，授权：" + (granted ? "已授权" : "未授权");
-        } catch (Throwable t) {
-            shizuku = "Shizuku：不可用";
-        }
-        shizukuStatus.setText(shizuku);
-        a11yStatus.setText("无障碍服务：" + (isAccessibilityEnabled() ? "已启用" : "未启用"));
-    }
-
-    private void shizukuAction() {
-        try {
-            if (!Shizuku.pingBinder()) {
-                toast("Shizuku 未运行：请先用无线调试启动，或在 Shizuku App 里点启动");
-                openShizukuManager();
+    /** 实时状态面板：耳机、编码器/采样率/位深、码率模式、自适应时的实际码率探测。 */
+    private void refreshLive() {
+        DirectorCore.get(this).requestStatus(sn -> ui.post(() -> {
+            if (isDestroyed() || isFinishing()) return;
+            if (!sn.error.isEmpty()) {
+                liveName.setText(sn.error);
+                liveCodec.setText("编码器：—");
+                liveBitrate.setText("码率：—");
+                liveSelectable.setText("可选：—");
                 return;
             }
-            if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
-                Shizuku.requestPermission(REQ_SHIZUKU);
-            } else {
-                ShellExec.bind(this);
-                toast("Shizuku 已就绪");
-                refreshStatus();
-            }
-        } catch (Throwable t) {
-            toast("Shizuku 请求失败：" + t.getMessage());
-        }
+            liveName.setText("耳机：" + sn.name + "（" + sn.mac + "）");
+            liveCodec.setText("编码器：" + sn.codec
+                    + (sn.rate.isEmpty() ? "" : " · " + sn.rate)
+                    + (sn.bits.isEmpty() ? "" : " · " + sn.bits));
+            String bitrate = "码率：" + (sn.bitrate.isEmpty() ? "—" : sn.bitrate);
+            if (!sn.adaptive.isEmpty()) bitrate += "\n        " + sn.adaptive;
+            liveBitrate.setText(bitrate);
+            liveSelectable.setText("可选：" + (sn.selectable.isEmpty() ? "—" : sn.selectable));
+        }));
     }
 
-    private void openShizukuManager() {
-        try {
-            Intent i = getPackageManager().getLaunchIntentForPackage("moe.shizuku.manager");
-            if (i != null) {
-                startActivity(i);
-            } else {
-                Intent i2 = getPackageManager().getLaunchIntentForPackage("moe.shizuku.privileged.api");
-                if (i2 != null) {
-                    startActivity(i2);
-                } else {
-                    toast("未安装 Shizuku，请先安装");
-                }
-            }
-        } catch (Throwable t) {
-            toast("无法打开 Shizuku：" + t.getMessage());
-        }
-    }
-
-    private void testTrigger() {
-        if (!isAccessibilityEnabled()) {
-            toast("请先开启无障碍服务");
-            return;
-        }
-        if (LhdcAutoService.instance == null) {
-            toast("无障碍服务实例未运行，请确认已在系统里启用");
-            return;
-        }
-        LhdcAutoService.trigger(this);
-        toast("已触发，请看下方日志");
-    }
-
-    // ---------- 日志 ----------
-
-    private void refreshLog() {
-        String h = Config.sp(this).getString(Config.KEY_LOG_HISTORY, "");
-        logView.setText(h);
-        logScroll.post(() -> logScroll.fullScroll(View.FOCUS_DOWN));
-    }
-
-    private void copyLog() {
-        String h = Config.sp(this).getString(Config.KEY_LOG_HISTORY, "");
-        if (h.isEmpty()) {
-            toast("日志为空");
-            return;
-        }
-        android.content.ClipboardManager cm =
-                (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-        cm.setPrimaryClip(android.content.ClipData.newPlainText("音质助手日志", h));
-        toast("日志已复制");
-    }
-
-    private void clearLog() {
-        Config.sp(this).edit().remove(Config.KEY_LOG_HISTORY).apply();
-        refreshLog();
-    }
-
-    private void loadCrashReportIntoLog() {
-        java.io.File f = App.crashFile(this);
-        if (!f.exists()) return;
-        try {
-            byte[] data = new byte[(int) f.length()];
-            java.io.FileInputStream in = new java.io.FileInputStream(f);
-            int off = 0;
-            while (off < data.length) {
-                int n = in.read(data, off, data.length - off);
-                if (n < 0) break;
-                off += n;
-            }
-            in.close();
-            String content = new String(data, "UTF-8");
-            SharedPreferences sp = Config.sp(this);
-            String h = sp.getString(Config.KEY_LOG_HISTORY, "")
-                    + "===== 上次崩溃 =====\n" + content + "\n";
-            sp.edit().putString(Config.KEY_LOG_HISTORY, h).apply();
-            f.delete();
-            refreshLog();
-        } catch (Exception ignored) {
-        }
+    /** 主界面状态行：自动修复总开关 + 最近一条 API 修复日志。 */
+    private void refreshFixStatus() {
+        fixStatus.setText("自动修复：" + (Config.isEnabled(this) ? "开启" : "关闭")
+                + "\n" + DirectorCore.lastLog(this));
     }
 
     private void toast(String s) {

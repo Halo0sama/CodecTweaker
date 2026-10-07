@@ -18,6 +18,18 @@ public class App extends Application {
     private static final String CRASH_FILE = "crash.txt";
 
     @Override
+    public void onCreate() {
+        super.onCreate();
+        // 常驻自动修复：进程启动即武装（A2DP 重连广播 → API 修复）。
+        // 无障碍服务在场时进程长期存活；否则活到系统回收为止。
+        try {
+            DirectorCore.get(this);
+        } catch (Throwable t) {
+            Log.e("LHDCProbe", "DirectorCore 初始化失败", t);
+        }
+    }
+
+    @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
         final Thread.UncaughtExceptionHandler previous =

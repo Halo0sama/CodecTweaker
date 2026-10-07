@@ -68,10 +68,13 @@ public class LhdcAutoService extends AccessibilityService {
                 int state = intent.getIntExtra("android.bluetooth.profile.extra.STATE", -1);
                 if (state == BluetoothProfile.STATE_CONNECTED && Config.isTarget(context, device)) {
                     Config.rememberDevice(context, device);
-                    long delay = Config.getTriggerDelayMs(context);
-                    log("检测到目标耳机 A2DP 连接，" + delay + "ms 后自动切换");
-                    handler.postDelayed(() -> startFlow("a2dp_connected",
-                            device.getAddress()), delay);
+                    // API 修复无需 UI 流程的触发延迟，立即触发以抢在 DirectorCore
+                    // 自身接收器之前占坑，保证 UI 兜底回调挂在这条链上
+                    log("检测到目标耳机 A2DP 连接，API 修复（UI 兜底）");
+                    handler.post(() -> DirectorCore.get(LhdcAutoService.this)
+                            .scheduleAutoFix(device.getAddress(),
+                                    () -> startFlow("api_fix_fallback",
+                                            device.getAddress())));
                 }
             } else if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)
                     && Config.isTarget(context, device)) {
@@ -86,6 +89,14 @@ public class LhdcAutoService extends AccessibilityService {
         instance = this;
         lastLog = "服务已连接";
         log("无障碍服务已连接");
+        // 无障碍服务在场 → 进程常驻 → DirectorCore 的 API 自动修复长期有效。
+        // 本服务的 UI 流程降级为兜底：API 修复未达标时才走。
+        try {
+            DirectorCore.get(this);
+            log("API 自动修复已武装（开关=" + Config.isEnabled(this) + "）");
+        } catch (Throwable t) {
+            log("DirectorCore 初始化失败，退回纯 UI 流程: " + t);
+        }
         BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         adapter = bm != null ? bm.getAdapter() : null;
         ShellExec.bind(this);
@@ -154,6 +165,11 @@ public class LhdcAutoService extends AccessibilityService {
         }
         if (!Config.isEnabled(this)) {
             log("自动切换开关未开启，跳过(" + reason + ")");
+            return;
+        }
+        // UI 兜底默认关闭：仅"测试触发"（用户显式点击）可越过
+        if (!"manual_trigger".equals(reason) && !Config.isUiFlowEnabled(this)) {
+            log("无障碍 UI 兜底未开启，跳过(" + reason + ")");
             return;
         }
         if (!ShellExec.available()) {
@@ -430,8 +446,9 @@ public class LhdcAutoService extends AccessibilityService {
                         }
                         if (connected && !lastConnected && Config.isEnabled(LhdcAutoService.this)
                                 && (!Config.isScreenOnRequired(LhdcAutoService.this) || isScreenOn())) {
-                            long delay = Config.getTriggerDelayMs(LhdcAutoService.this);
-                            handler.postDelayed(() -> startFlow("poll_connected"), delay);
+                            handler.post(() -> DirectorCore.get(LhdcAutoService.this)
+                                    .scheduleAutoFix(null,
+                                            () -> startFlow("poll_fallback")));
                         }
                         lastConnected = connected;
                     }

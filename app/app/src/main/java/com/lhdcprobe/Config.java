@@ -19,6 +19,8 @@ public final class Config {
     public static final String PREFS = "lhdc_auto";
 
     public static final String KEY_ENABLED = "enabled";
+    /** 无障碍 UI 兜底流程开关（默认关闭；API 修复失败时才需要）。 */
+    public static final String KEY_UI_FLOW = "ui_flow_enabled";
     public static final String KEY_CODEC_LABEL = "codec_label";
     public static final String KEY_QUALITY_LABEL = "quality_label";
     public static final String KEY_SEARCH_KEYWORD = "search_keyword";
@@ -90,6 +92,14 @@ public final class Config {
 
     public static void setEnabled(Context c, boolean v) {
         sp(c).edit().putBoolean(KEY_ENABLED, v).apply();
+    }
+
+    public static boolean isUiFlowEnabled(Context c) {
+        return sp(c).getBoolean(KEY_UI_FLOW, false);
+    }
+
+    public static void setUiFlowEnabled(Context c, boolean v) {
+        sp(c).edit().putBoolean(KEY_UI_FLOW, v).apply();
     }
 
     public static String getCodecLabel(Context c) {
